@@ -1,12 +1,10 @@
 
 my $ads_bib_file_stem = "adstex";  # Will create a bibliography named adstex.keys.bib
 
-my $keys_file_extension = 'keys.lst';
-my $tmp_tex_file_extension = 'keys.tex';
+my $keys_tex_file_extension = 'keys.tex';
 my $bib_file_extension = 'keys.bib';
 
-push @generated_exts, $keys_file_extension;
-push @generated_exts, $tmp_tex_file_extension;
+push @generated_exts, $keys_tex_file_extension;
 push @generated_exts, $bib_file_extension;
 
 add_hook('before_xlatex', 'run_adstex');
@@ -20,14 +18,13 @@ sub run_adstex {
 
     my $aux_file = "$$Pbase.aux";
 
-    my $keys_file = "$$Pbase.$keys_file_extension";
-    my $tmp_tex_file = "$$Pbase.$tmp_tex_file_extension";
+    my $keys_tex_file = "$$Pbase.$keys_tex_file_extension";
     my $ads_bib_file = "$ads_bib_file_stem.$bib_file_extension";
 
 
     # Ensure the generated bibliography file exists, as latexmk expects it
     if (! -e $ads_bib_file) {
-        print "myextension: Creating empty file $ads_bib_file (first use)...\n";
+        print "myextension: Creating empty file $ads_bib_file (first use).\n";
         open my $bf, '>', $ads_bib_file or die "Cannot create $ads_bib_file: $!";
         close $bf;
     }
@@ -49,44 +46,39 @@ sub run_adstex {
     my %keys = parse_keys($aux_file);
 
 
-    # Read known citation keys from the keys file
-    my %known_keys = read_known_keys($keys_file);
-
+    # Read cached citation keys from the citation keys LaTeX file
+    my %cached_keys = read_cached_keys($keys_tex_file);
+    print "myextension: Read ", scalar(keys %cached_keys), " cached citation keys from $keys_tex_file.\n";
 
     #
-    # Compare current keys to known keys
+    # Compare current keys to cached keys
     #    
-    my %all_keys = (%known_keys, %keys);  # Merged set
-    my @new_keys   = grep { !$known_keys{$_} } keys %keys;  # New, unseen keys only
+    my %all_keys = (%cached_keys, %keys);  # Merged set
+    my @new_keys   = grep { !$cached_keys{$_} } keys %keys;  # Keys not in cache
     if (!@new_keys) {
         print "myextension: No new citation keys found; finished.\n";
         return 0;
     }
-    print "myextension: Found ", scalar(@new_keys), " new citation keys.\n";
+    print "myextension: Found ", scalar(@new_keys), " new, uncached citation keys.\n";
 
-    # Update known keys file
-    open my $kf, '>', $keys_file or die "open $keys_file: $!";
-    binmode($kf, ':encoding(UTF-8)');
-    print {$kf} join("\n", sort keys %all_keys), "\n";
-    close $kf;
-    print "myextension: Updated $keys_file with ", scalar(keys %all_keys), " total keys.\n";
-
-    # Write temporary LaTeX file for adstex
-    write_tmp_tex_file($tmp_tex_file, %all_keys);
+    # Write citation keys LaTeX file for adstex
+    write_cached_keys($keys_tex_file, %all_keys);
 
     #
-    # Run adstex on the temporary LaTeX file
+    # Run adstex on the citation keys LaTeX file
     #
-    print "myextension: Running adstex on $tmp_tex_file to produce $ads_bib_file\n";
+    print "myextension: Running adstex on $keys_tex_file to produce $ads_bib_file\n";
     # The --other options: pass all user bibliography files except the managed one
     my $user_bibtex_files = join '', map { qq{ "$_"} }
         grep { $_ ne $ads_bib_file && -e $_ } @bibtex_files;
-    my $cmd = "adstex \"$tmp_tex_file\" --no-update --other $user_bibtex_files --output $ads_bib_file";
-    print "myextension: Running external command: $cmd\n";
+    my $cmd = "adstex \"$keys_tex_file\" --no-update --other $user_bibtex_files --output $ads_bib_file";
+    print "myextension: Running external command:\n";
+    print "myextension> $cmd\n";
     my $rc = system($cmd);
-    print "myextension: Finished running adstex on $tmp_tex_file.\n";
+    print "myextension: Finished running adstex on $keys_tex_file.\n";
     return ($rc == 0) ? 0 : 1;
 }
+
 
 sub discover_bibtex_files {
     # Discover bibliography files from the .aux file
@@ -117,7 +109,7 @@ sub parse_keys {
     # Supports both BibTeX and biblatex citation formats
     # Returns a hash of citation keys
     my ($aux_file) = @_;
-    print "myextension: Reading current citation keys from $aux_file...\n";
+    print "myextension: Reading citation keys from $aux_file...\n";
 
     my %keys;
     open my $fh, '<', $aux_file;
@@ -133,57 +125,59 @@ sub parse_keys {
         }
     }
     close $fh;
-    print "myextension: Finished reading ", scalar(keys %keys), " current citation keys from $aux_file.\n";
+    print "myextension: Finished reading ", scalar(keys %keys), " citation keys from $aux_file.\n";
 
     return %keys;
 }
 
 
-sub read_known_keys {
-    # Read known citation keys from the keys file
+sub read_cached_keys {
+    # Read cached citation keys from the citation keys LaTeX file
     # The file is created if it does not exist
-    my ($keys_file) = @_;
+    my ($keys_tex_file) = @_;
 
-    my %known_keys; 
+    my %keys;
 
-    # If the keys file does not exist, create an empty one
-    if (! -e $keys_file) {
-        print "myextension: Creating empty file $keys_file (first use)...\n";
-        open my $kf, '>', $keys_file or die "myextension: Cannot create $keys_file: $!";
+    if (! -e $keys_tex_file) {
+        print "myextension: Creating empty file $keys_tex_file (first use).\n";
+        open my $kf, '>', $keys_tex_file or die "myextension: Cannot create $keys_tex_file: $!";
         close $kf;
-        return %known_keys;
+        return %keys;
     }
 
-    print "myextension: Reading known citation keys from $keys_file...\n";
-    if (-e $keys_file) {
-        open my $kfr, '<', $keys_file;
-        binmode($kfr, ':encoding(UTF-8)');
-        while (my $line = <$kfr>) {
-            chomp $line;
-            $known_keys{$line} = 1 if $line ne '';
+    print "myextension: Reading cached citation keys from $keys_tex_file...\n";
+    open my $fh, '<', $keys_tex_file or return %keys;
+    binmode($fh, ':encoding(UTF-8)');
+    while (<$fh>) {
+        next if /^\s*%/;  # skip comments
+        while (/\\cite\{([^}]*)\}/g) {
+            $keys{$1} = 1 if length $1;
         }
-        close $kfr;
-        print "myextension: Read  ", scalar(keys %known_keys), " known citation keys from $keys_file.\n";
     }
-    else {
-        print "myextension: The file $keys_file does not exist (normal after cleaning).\n";
-    }
-    return %known_keys;
+    close $fh;
+    return %keys;
 }
 
-sub write_tmp_tex_file {
-    my ($tmp_tex_file, %all_keys) = @_;
-    #
-    # Create temporary LaTeX file to run adstex on
-    #
-    print "myextension: Writing temporary LaTeX file $tmp_tex_file for adstex...\n";
-    open my $tf, '>', $tmp_tex_file;
+
+sub write_cached_keys {
+    # Create citation keys LaTeX file to run adstex on
+    # The citation keys are written as \cite{key} commands, each on a separate line
+    my ($keys_tex_file, %keys) = @_;
+    print "myextension: Writing ", scalar(%keys), " citation keys to LaTeX file $keys_tex_file...\n";
+    open my $tf, '>', $keys_tex_file;
     binmode($tf, ':encoding(UTF-8)');
-    print {$tf} "\\documentclass{article}\\begin{document}\n";
-    if (%all_keys) {
-        print {$tf} "\\cite{", join(',', sort keys %all_keys), "}\n";
+
+    print {$tf} "\\documentclass{article}\n";
+    print {$tf} "\\begin{document}\n";
+    print {$tf} "Citation keys file generated by latexmk extension for adstex.\n";
+    print {$tf} "There are ", scalar(keys %keys), " citation keys in total.\n";
+    print {$tf} "\n";
+    for my $k (sort keys %keys) {
+        next unless length $k;
+        print {$tf} "\\cite{$k}\n";
     }
+    print {$tf} "\n";
     print {$tf} "\\end{document}\n";
-    close $tf;
-    print "myextension: Finished writing temporary LaTeX file $tmp_tex_file for adstex.\n";
+    close $tf or die "close $keys_tex_file: $!";
+    print "myextension: Finished writing citation keys LaTeX file $keys_tex_file.\n";
 }
