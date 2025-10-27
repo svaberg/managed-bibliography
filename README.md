@@ -1,17 +1,28 @@
-# Bullet bibliography style
-The bullet bibliography style is based on `natbib`, the `aas_macros`, and the Monthly Notices `.bst` file `mnras.bst`. 
-The latter file is changed in a single line, to set `maxauthors=1` in the bibliography. I think there is no other way to set this parameter.
+This script uses NASA ADS citation keys with `adstex` so that you can
+forget about your bibliography management! The extension fetches and
+caches the bibliography entries from the NASA ADS database
+automatically. The extension creates and manages a bibliography file
+named `adstex.keys.bib` in the working directory.
 
-Below is an example of how to use the bullet bibliography style. Please star the repository if you find it useful.
+Custom citations with keys not in the ADS database can be added by
+providing one or more additional bibliography files, as is done in the
+source file for this document.
 
+## How it works {#how-it-works .unnumbered}
 
-## Top ten papers
-These are the top ten papers by citation count in the NASA ADS: Shakura & Sunyaev (1973); Schlegel et al. (1998); Riess et al. (1998); Planck Collaboration et al. (2016, 2020); Perlmutter et al. (1999); Perdew & Zunger (1981); Novoselov et al. (2005); Astropy Collaboration et al. (2013); Abbott et al. (2016)
+The `latexmkrc` file has been extended with a custom Perl script that
+runs `adstex` automatically as part of the build process. The script
+scans the LaTeX source file for citation keys, checks which keys are
+already known (cached) in the local bibliography file, and fetches any
+missing entries from the NASA ADS database using `adstex`. The fetched
+entries are then added to the managed bibliography file, which is used
+during the LaTeX compilation. During the process the extension makes use
+a temporary TeX file `.keys.txt` which is built from itself and the
+`.aux` file and consumed by `adstex`. After a deep clean (`latexmk -C`),
+the extension builds everything in 3--4 passes which is what `latexmk`
+normally does anyway.
 
-
-### Result
-Below you can see how the resulting bibliography looks.
-
-
-## References
-• Abbott B. P., et al., 2016, Phys. Rev. Lett., 116, 061102 • Astropy Collaboration et al., 2013, A&A, 558, A33 • Novoselov K. S., et al., 2005, Nature, 438, 197 • Perdew J. P., et al., 1981, Phys. Rev. B, 23, 5048 • Perlmutter S., et al., 1999, ApJ, 517, 565 • Planck Collaboration et al., 2016, A&A, 594, A13 • Planck Collaboration et al., 2020, A&A, 641, A6 • Riess A. G., et al., 1998, AJ, 116, 1009 • Schlegel D. J., et al., 1998, ApJ, 500, 525 • Shakura N. I., et al., 1973, A&A, 24, 337
+Keys that are no longer used in the document are not automatically
+removed from the managed bibliography file, but they can be removed
+manually by deleting the `adstex.keys.bib` file and rebuilding the
+document.

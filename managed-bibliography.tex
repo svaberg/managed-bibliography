@@ -1,0 +1,27 @@
+\documentclass{article} 
+\usepackage{aas_macros}
+
+\begin{document}
+
+\section*{Managed bibliography with NASA ADS citation keys} 
+
+\input{README.tex}
+
+\subsection*{Example citations}
+Papers that use the ADS citation keys are automatically included in the managed bibliography file \texttt{adstex.keys.bib}.
+Here are some examples of such citations:
+\cite{%
+    1958ZA.....46..108B,%
+    1962AJ.....67..471K,%
+    1966AJ.....71...64K%
+}. 
+Here are a few more
+\cite{2002Sci...295...82K,2003PASP..115..763C}. 
+
+Works that are not in the ADS database can be cited as usual by providing a custom bibliography file. Here is an example: \cite{mcgrail2004}.
+
+
+\bibliographystyle{plain}
+\bibliography{adstex.keys.bib,custom}
+
+\end{document}
