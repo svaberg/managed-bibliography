@@ -1,5 +1,6 @@
 
 my $ads_bib_file_stem = "adstex";  # Will create a bibliography named adstex.keys.bib
+my $adstex_options = "--no-update --no-backup";  # Additional options to pass to adstex
 
 my $keys_tex_file_extension = 'keys.tex';
 my $bib_file_extension = 'keys.bib';
@@ -56,7 +57,7 @@ sub run_adstex {
     my %all_keys = (%cached_keys, %keys);  # Merged set
     my @new_keys   = grep { !$cached_keys{$_} } keys %keys;  # Keys not in cache
     if (!@new_keys) {
-        print "myextension: No new citation keys found; finished.\n";
+        print "myextension: No uncached citation keys found; finished.\n";
         return 0;
     }
     print "myextension: Found ", scalar(@new_keys), " new, uncached citation keys.\n";
@@ -67,11 +68,11 @@ sub run_adstex {
     #
     # Run adstex on the citation keys LaTeX file
     #
-    print "myextension: Running adstex on $keys_tex_file to produce $ads_bib_file\n";
+    print "myextension: Running adstex on $keys_tex_file to generate $ads_bib_file\n";
     # The --other options: pass all user bibliography files except the managed one
     my $user_bibtex_files = join '', map { qq{ "$_"} }
         grep { $_ ne $ads_bib_file && -e $_ } @bibtex_files;
-    my $cmd = "adstex \"$keys_tex_file\" --no-update --other $user_bibtex_files --output $ads_bib_file";
+    my $cmd = "adstex \"$keys_tex_file\" $adstex_options --other $user_bibtex_files --output \"$ads_bib_file\"";
     print "myextension: Running external command:\n";
     print "myextension> $cmd\n";
     my $rc = system($cmd);
