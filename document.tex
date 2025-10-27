@@ -1,0 +1,35 @@
+\documentclass{article} 
+% \usepackage{natbib}
+% \bibliographystyle{plainnat}
+\usepackage{aas_macros}
+
+
+\begin{document}
+
+\section*{Test file}
+
+This package uses NASA ADS citation keys with \texttt{adstex} so that you can forget about your bibliography management! The extension fetches and caches the bibliography entries from the NASA ADS database automatically. The extension creates and manages a bibliography file named \texttt{adstex.keys.bib} in the working directory. 
+
+Custom citations with keys not in the ADS database can be added by providing one or more additional bibliography files, as is done in the source file for this document.
+
+\subsection*{How it works}
+The \texttt{latexmkrc} file has been extended with a custom extension that runs \texttt{adstex} automatically as part of the build process. The extension scans the LaTeX source file for citation keys, checks which keys are already known (cached) in the local bibliography file, and fetches any missing entries from the NASA ADS database using \texttt{adstex}. The fetched entries are then added to the managed bibliography file, which is used during the LaTeX compilation. During the process the extension makes use of two further auxiliary files: a \texttt{.keys.lst} file, which contains the list of known citation keys, and a temporary TeX file \texttt{.keys.txt} which is built from \texttt{.keys.lst} file and consumed by \texttt{adstex}. After a deep clean (\texttt{latexmk -C}), the extension builds everything in three passes which is what \texttt{latexmk} normally does anyway. 
+
+\subsection*{Example citations}
+Papers that use the ADS citation keys are automatically included in the managed bibliography file \texttt{adstex.keys.bib}.
+Here are some examples of such citations:
+\cite{%
+    1958ZA.....46..108B,%
+    1962AJ.....67..471K,%
+    1966AJ.....71...64K%
+}. 
+Here are a few more
+\cite{2002Sci...295...82K,2003PASP..115..763C}. 
+
+Works that are not in the ADS database can be cited as usual by providing a custom bibliography file. Here is an example: \cite{mcgrail2004}.
+
+
+\bibliographystyle{plain}
+\bibliography{adstex.keys.bib,custom}
+
+\end{document}
