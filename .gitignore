@@ -1,7 +1,7 @@
 # Temporary files genererated by the extension latexmk-adstex
 # to manage bibliography with ADS citation keys.
 *.keys.tex
-*.keys.bib
+*adskeys.bib
 
 # LaTeX files to ignore temporary files
 *.aux

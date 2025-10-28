@@ -1,28 +1,23 @@
-This script uses NASA ADS citation keys with `adstex` so that you can
-forget about your bibliography management! The extension fetches and
-caches the bibliography entries from the NASA ADS database
-automatically. The extension creates and manages a bibliography file
-named `adstex.keys.bib` in the working directory.
+This Perl script uses NASA astronomy data service (ADS) citation keys and the `adstex` Python package so that you can forget about your bibliography management! For citation commands in your document that use ADS citation keys, i.e., commands like this `\cite{1958ZA.....46..108B}`, the script automatically fetches and caches the bibliography entries from the ADS database in a managed bibliography file (normally with extension `.adskeys.bib`).
 
-Custom citations with keys not in the ADS database can be added by
-providing one or more additional bibliography files, as is done in the
-source file for this document.
+Citations with keys that are not present in the ADS database can be added by providing one or more additional bibliography files, as is done in the source file for this document: `\bibliography{manbib.adskeys,custom}`.
 
-## How it works {#how-it-works .unnumbered}
+The script is intended for integration with `latexmk`, which automates the build process for LaTeX documents.
 
-The `latexmkrc` file has been extended with a custom Perl script that
-runs `adstex` automatically as part of the build process. The script
-scans the LaTeX source file for citation keys, checks which keys are
-already known (cached) in the local bibliography file, and fetches any
-missing entries from the NASA ADS database using `adstex`. The fetched
-entries are then added to the managed bibliography file, which is used
-during the LaTeX compilation. During the process the extension makes use
-a temporary TeX file `.keys.txt` which is built from itself and the
-`.aux` file and consumed by `adstex`. After a deep clean (`latexmk -C`),
-the extension builds everything in 3--4 passes which is what `latexmk`
-normally does anyway.
+## How it works
 
-Keys that are no longer used in the document are not automatically
-removed from the managed bibliography file, but they can be removed
-manually by deleting the `adstex.keys.bib` file and rebuilding the
-document.
+The Perl script `managed-bibliography.pl` reads bibliography information from the `.aux` file which is created by the LaTeX compiler during a build. The script builds a small `.keys.tex` file which contains all the citations in the `.tex` files that are part of the build. This file is passed to the Python `adstex` package, which updates the managed bibliography file when new ADS citation keys are found.
+
+Keys that are no longer used in the document are not automatically removed from the managed bibliography file, but they can be purged by deleting the managed bibliography file and rebuilding the document. You can also use the `delete_on_full_clean` option to have the managed bibliography file deleted when running `latexmk -C`. (Note that depending on other settings, `latexmk` may keep or delete the `.bbl` file during a clean operation.)
+
+An example of how to integrate the script with `latexmk` is provided in the `latexmkrc` file included in this repository.
+
+## Test case
+
+To build `manbib.tex` with `latexmk` run the following command in the terminal:
+
+    latexmk -pdf -bibtex manbib.tex
+
+This will create the file `manbib.pdf` along with the managed bibliography file `manbib.adskeys.bib`. You can clean up the generated files by running:
+
+    latexmk -C manbib.tex
