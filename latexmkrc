@@ -1,4 +1,5 @@
 
+#
 # Settings for managed-bibliography.pl script
 #
 # To use this extension with latexmk, add the contents
@@ -42,12 +43,11 @@ $keys_tex_file_extension = 'keys.tex';
 # Add this to latexmkrc to loads the script
 require './managed-bibliography.pl';
 #
-# End of managed-bibliography.pl settings
+# End of settings
 #
 
-
-
-# This is separate configuration used to build manbib.tex
+# This is separate configuration used to include the README.md
+# file as README.tex in the LaTeX document. This is optional
 # and not part of the managed-bibliography.pl settings.
 add_hook('before_xlatex', 'convert_readme');
 sub convert_readme {
