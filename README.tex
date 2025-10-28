@@ -1,10 +1,11 @@
-This Perl script uses NASA astronomy data service (ADS) citation keys
-and the \texttt{adstex} Python package so that you can forget about your
-bibliography management! For citation commands in your document that use
-ADS citation keys, i.e., commands like this
-\texttt{\textbackslash{}cite\{1958ZA.....46..108B\}}, the script
-automatically fetches and caches the bibliography entries from the ADS
-database in a managed bibliography file (normally with extension
+This Perl script uses the \href{https://ui.adsabs.harvard.edu/}{NASA
+astronomy data service (ADS)} citation keys and the
+\href{https://github.com/yymao/adstex}{Python \texttt{adstex} package}
+so that you can forget about your bibliography management! For citation
+commands in your document that use ADS citation keys, i.e., commands
+like this \texttt{\textbackslash{}cite\{1958ZA.....46..108B\}}, the
+script automatically fetches and caches the bibliography entries from
+the ADS database in a managed bibliography file (normally with extension
 \texttt{.adskeys.bib}).
 
 Citations with keys that are not present in the ADS database can be
@@ -12,34 +13,36 @@ added by providing one or more additional bibliography files, as is done
 in the source file for this document:
 \texttt{\textbackslash{}bibliography\{manbib.adskeys,custom\}}.
 
-The script is intended for integration with \texttt{latexmk}, which
-automates the build process for LaTeX documents.
+The script is intended for integration with
+\href{https://ctan.org/pkg/latexmk/}{Latexmk}, which automates the build
+process for LaTeX documents.
 
 \subsection{How it works}\label{how-it-works}
 
-The Perl script \texttt{managed-bibliography.pl} reads bibliography
-information from the \texttt{.aux} file which is created by the LaTeX
-compiler during a build. The script builds a small \texttt{.keys.tex}
-file which contains all the citations in the \texttt{.tex} files that
-are part of the build. This file is passed to the Python \texttt{adstex}
-package, which updates the managed bibliography file when new ADS
-citation keys are found.
+The Perl script
+\href{./managed-bibliography.pl}{\texttt{managed-bibliography.pl}} reads
+bibliography information from the \texttt{.aux} file which is created by
+the LaTeX compiler during a build. The script builds a small
+\texttt{.keys.tex} file which contains all the citations in the
+\texttt{.tex} files that are part of the build. This file is passed to
+the Python \texttt{adstex} package, which updates the managed
+bibliography file when new ADS citation keys are found.
 
 Keys that are no longer used in the document are not automatically
 removed from the managed bibliography file, but they can be purged by
 deleting the managed bibliography file and rebuilding the document. You
 can also use the \texttt{delete\_on\_full\_clean} option to have the
 managed bibliography file deleted when running \texttt{latexmk\ -C}.
-(Note that depending on other settings, \texttt{latexmk} may keep or
-delete the \texttt{.bbl} file during a clean operation.)
+(Note that depending on other settings, Latexmk may keep or delete the
+\texttt{.bbl} file during a clean operation.)
 
-An example of how to integrate the script with \texttt{latexmk} is
-provided in the \texttt{latexmkrc} file included in this repository.
+An example of how to integrate the script with Latexmk is provided in
+the \texttt{latexmkrc} file included in this repository.
 
 \subsection{Test case}\label{test-case}
 
-To build \texttt{manbib.tex} with \texttt{latexmk} run the following
-command in the terminal:
+To build \href{./manbib.tex}{\texttt{manbib.tex}} with Latexmk run the
+following command in the terminal:
 
 \begin{verbatim}
 latexmk -pdf -bibtex manbib.tex
