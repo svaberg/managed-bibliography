@@ -41,3 +41,15 @@ $keys_tex_file_extension = 'keys.tex';
 
 # Add this to latexmkrc to loads the script
 require './managed-bibliography.pl';
+#
+# End of managed-bibliography.pl settings
+#
+
+
+
+# This is separate configuration used to build manbib.tex
+# and not part of the managed-bibliography.pl settings.
+add_hook('before_xlatex', 'convert_readme');
+sub convert_readme {
+    return system("pandoc README.md -o README.tex");
+}

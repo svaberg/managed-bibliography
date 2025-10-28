@@ -1,0 +1,54 @@
+This Perl script uses NASA astronomy data service (ADS) citation keys
+and the \texttt{adstex} Python package so that you can forget about your
+bibliography management! For citation commands in your document that use
+ADS citation keys, i.e., commands like this
+\texttt{\textbackslash{}cite\{1958ZA.....46..108B\}}, the script
+automatically fetches and caches the bibliography entries from the ADS
+database in a managed bibliography file (normally with extension
+\texttt{.adskeys.bib}).
+
+Citations with keys that are not present in the ADS database can be
+added by providing one or more additional bibliography files, as is done
+in the source file for this document:
+\texttt{\textbackslash{}bibliography\{manbib.adskeys,custom\}}.
+
+The script is intended for integration with \texttt{latexmk}, which
+automates the build process for LaTeX documents.
+
+\subsection{How it works}\label{how-it-works}
+
+The Perl script \texttt{managed-bibliography.pl} reads bibliography
+information from the \texttt{.aux} file which is created by the LaTeX
+compiler during a build. The script builds a small \texttt{.keys.tex}
+file which contains all the citations in the \texttt{.tex} files that
+are part of the build. This file is passed to the Python \texttt{adstex}
+package, which updates the managed bibliography file when new ADS
+citation keys are found.
+
+Keys that are no longer used in the document are not automatically
+removed from the managed bibliography file, but they can be purged by
+deleting the managed bibliography file and rebuilding the document. You
+can also use the \texttt{delete\_on\_full\_clean} option to have the
+managed bibliography file deleted when running \texttt{latexmk\ -C}.
+(Note that depending on other settings, \texttt{latexmk} may keep or
+delete the \texttt{.bbl} file during a clean operation.)
+
+An example of how to integrate the script with \texttt{latexmk} is
+provided in the \texttt{latexmkrc} file included in this repository.
+
+\subsection{Test case}\label{test-case}
+
+To build \texttt{manbib.tex} with \texttt{latexmk} run the following
+command in the terminal:
+
+\begin{verbatim}
+latexmk -pdf -bibtex manbib.tex
+\end{verbatim}
+
+This will create the file \texttt{manbib.pdf} along with the managed
+bibliography file \texttt{manbib.adskeys.bib}. You can clean up the
+generated files by running:
+
+\begin{verbatim}
+latexmk -C manbib.tex
+\end{verbatim}
