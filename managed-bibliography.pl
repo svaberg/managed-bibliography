@@ -16,54 +16,65 @@
 # You can also load it ad-hoc:
 #          latexmk -r managed-bibliography.pl -pdf document.tex
 #
-# Configuration variables normally set in latexmkrc:
-#   $ads_bib_file_stem         # name stem for the managed keys.bib file (default: adstex)
-#   $adstex_options            # options passed to adstex (default: --no-update --no-backup)
-#   $bib_file_extension        # suffix for managed .bib file (default: keys.bib)
-#   $keys_tex_file_extension   # suffix for cached keys file (default: keys.tex)
-#
 # See: https://github.com/svaberg/managed-bibliography
+#
+# Managed bibliography file name. The special value
+# undef (or unset) means to use the main LaTeX file base name.
+my $managed_bib_file = $main::managed_bib_file // undef;
+#
+# Additional options to pass to adstex. 
+my $adstex_options = $main::adstex_options // '--no-update --no-backup';
+#
+# Force the deletion of the managed bibliography file 
+# on an 'extra full' clean (latexmk -C) operation. 
+my $delete_on_full_clean = $main::delete_on_full_clean // 0;
+#
+# Extensions for the managed bibliography file and 
+# the citation keys LaTeX file.
+my $bib_file_extension      = $main::bib_file_extension  // 'adskeys.bib';
+my $keys_tex_file_extension = $main::keys_tex_file_extension // 'keys.tex';
 
 
+# Main hook
+add_hook('before_xlatex', 'manage_bibliography');
+# Extra full clean hook
 if ($delete_on_full_clean) {
     add_hook('cleanup_extra_full', 'delete_managed_bibliography');
 }
 
 push @generated_exts, $keys_tex_file_extension;
 
-add_hook('before_xlatex', 'manage_bibliography');
-
 
 sub manage_bibliography {
 
-    print "myextension: ******************************************************\n";
-    print "myextension: * Forget bibliography management with pure ADS keys! *\n";
-    print "myextension: ******************************************************\n";
+    print "manbib: ******************************************************\n";
+    print "manbib: * Forget bibliography management with pure ADS keys! *\n";
+    print "manbib: ******************************************************\n";
 
     my $aux_file = "$$Pbase.aux";
+
     my $keys_tex_file = "$$Pbase.$keys_tex_file_extension";
-    if (!defined $ads_bib_file_stem) {
-        $ads_bib_file_stem = $$Pbase;
+    if (!defined $managed_bib_file) {
+        $managed_bib_file = "$$Pbase.$bib_file_extension";
     }
-    my $ads_bib_file = "$ads_bib_file_stem.$bib_file_extension";
 
 
     # Ensure the generated bibliography file exists, as latexmk expects it
-    if (! -e $ads_bib_file) {
-        print "myextension: Creating empty file $ads_bib_file (first use).\n";
-        open my $bf, '>', $ads_bib_file or die "Cannot create $ads_bib_file: $!";
+    if (! -e $managed_bib_file) {
+        print "manbib: Creating empty file $managed_bib_file (first use).\n";
+        open my $bf, '>', $managed_bib_file or die "manbib: Could not create $managed_bib_file: $!";
         close $bf;
     }
 
     # Read bibliography files and current citation keys from the .aux file.
     my @bibtex_files = discover_bibtex_files($aux_file);
     if (not @bibtex_files) {
-        print "myextension: No bibliography files found in $aux_file; nothing to do.\n";
+        print "manbib: No bibliography files found in $aux_file; nothing to do.\n";
         return 0;
     }
     # If the managed bibliography file is not among them we can end here.
-    if (! grep { $_ eq $ads_bib_file } @bibtex_files) {
-        print "myextension: Managed bibliography file $ads_bib_file not in use; nothing to do.\n";
+    if (! grep { $_ eq $managed_bib_file } @bibtex_files) {
+        print "manbib: Managed bibliography file $managed_bib_file not in use; nothing to do.\n";
         return 0;
     }
     # Read current citation keys from the .aux file
@@ -71,7 +82,7 @@ sub manage_bibliography {
 
     # Read cached citation keys from the citation keys LaTeX file
     my %cached_keys = read_cached_keys($keys_tex_file);
-    print "myextension: Read ", scalar(keys %cached_keys), " cached citation keys from $keys_tex_file.\n";
+    print "manbib: Read ", scalar(keys %cached_keys), " cached citation keys from $keys_tex_file.\n";
 
     #
     # Compare current keys to cached keys
@@ -79,10 +90,10 @@ sub manage_bibliography {
     my %all_keys = (%cached_keys, %keys);  # Merged set
     my @new_keys   = grep { !$cached_keys{$_} } keys %keys;  # Keys not in cache
     if (!@new_keys) {
-        print "myextension: No uncached citation keys found; finished.\n";
+        print "manbib: No uncached citation keys found; finished.\n";
         return 0;
     }
-    print "myextension: Found ", scalar(@new_keys), " new, uncached citation keys.\n";
+    print "manbib: Found ", scalar(@new_keys), " new, uncached citation keys.\n";
 
     # Write citation keys LaTeX file for adstex
     write_cached_keys($keys_tex_file, %all_keys);
@@ -90,23 +101,23 @@ sub manage_bibliography {
     #
     # Run adstex on the citation keys LaTeX file
     #
-    print "myextension: Running adstex on $keys_tex_file to generate $ads_bib_file\n";
+    print "manbib: Running adstex on $keys_tex_file to generate $managed_bib_file\n";
     # The --other options: pass all user bibliography files except the managed one
-   my @user_bibtex_files = grep { $_ ne $ads_bib_file && -e $_ } @bibtex_files;
-    print "myextension: User bibliography files for adstex: @user_bibtex_files\n";
+   my @user_bibtex_files = grep { $_ ne $managed_bib_file && -e $_ } @bibtex_files;
+    print "manbib: User bibliography files for adstex: @user_bibtex_files\n";
 
     my $other_part = '';
     if (@user_bibtex_files) {
-        print "myextension: Constructing other_part for adstex with user bibliography files.\n";
+        print "manbib: Constructing other_part for adstex with user bibliography files.\n";
         my $files = join ' ', map { qq{"$_"} } @user_bibtex_files;
         $other_part = "--other $files";
     }
-    print "myextension: Constructed other_part for adstex: $other_part\n";
-    my $cmd = "adstex \"$keys_tex_file\" $adstex_options $other_part --output \"$ads_bib_file\"";
-    print "myextension: Running external command:\n";
+    print "manbib: Constructed other_part for adstex: $other_part\n";
+    my $cmd = "adstex \"$keys_tex_file\" $adstex_options $other_part --output \"$managed_bib_file\"";
+    print "manbib: Running external command:\n";
     print "myextension> $cmd\n";
     my $rc = system($cmd);
-    print "myextension: Finished running adstex on $keys_tex_file.\n";
+    print "manbib: Finished running adstex on $keys_tex_file.\n";
     return ($rc == 0) ? 0 : 1;
 }
 
@@ -140,7 +151,7 @@ sub parse_keys {
     # Supports both BibTeX and biblatex citation formats
     # Returns a hash of citation keys
     my ($aux_file) = @_;
-    print "myextension: Reading citation keys from $aux_file...\n";
+    print "manbib: Reading citation keys from $aux_file...\n";
 
     my %keys;
     open my $fh, '<', $aux_file;
@@ -156,7 +167,7 @@ sub parse_keys {
         }
     }
     close $fh;
-    print "myextension: Finished reading ", scalar(keys %keys), " citation keys from $aux_file.\n";
+    print "manbib: Finished reading ", scalar(keys %keys), " citation keys from $aux_file.\n";
 
     return %keys;
 }
@@ -170,13 +181,13 @@ sub read_cached_keys {
     my %keys;
 
     if (! -e $keys_tex_file) {
-        print "myextension: Creating empty file $keys_tex_file (first use).\n";
-        open my $kf, '>', $keys_tex_file or die "myextension: Cannot create $keys_tex_file: $!";
+        print "manbib: Creating empty file $keys_tex_file (first use).\n";
+        open my $kf, '>', $keys_tex_file or die "manbib: Cannot create $keys_tex_file: $!";
         close $kf;
         return %keys;
     }
 
-    print "myextension: Reading cached citation keys from $keys_tex_file...\n";
+    print "manbib: Reading cached citation keys from $keys_tex_file...\n";
     open my $fh, '<', $keys_tex_file or return %keys;
     binmode($fh, ':encoding(UTF-8)');
     while (<$fh>) {
@@ -194,7 +205,7 @@ sub write_cached_keys {
     # Create citation keys LaTeX file to run adstex on
     # The citation keys are written as \cite{key} commands, each on a separate line
     my ($keys_tex_file, %keys) = @_;
-    print "myextension: Writing ", scalar(keys %keys), " citation keys to LaTeX file $keys_tex_file...\n";
+    print "manbib: Writing ", scalar(keys %keys), " citation keys to LaTeX file $keys_tex_file...\n";
     open my $tf, '>', $keys_tex_file;
     binmode($tf, ':encoding(UTF-8)');
 
@@ -210,19 +221,18 @@ sub write_cached_keys {
     print {$tf} "\n";
     print {$tf} "\\end{document}\n";
     close $tf or die "close $keys_tex_file: $!";
-    print "myextension: Finished writing citation keys LaTeX file $keys_tex_file.\n";
+    print "manbib: Finished writing citation keys LaTeX file $keys_tex_file.\n";
 }
 
 
 sub delete_managed_bibliography {
-    if (!defined $ads_bib_file_stem) {
-        $ads_bib_file_stem = $$Pbase;
+    if (!defined $managed_bib_file) {
+        $managed_bib_file = "$$Pbase.$bib_file_extension";
     }
-    my $ads_bib_file = "$ads_bib_file_stem.$bib_file_extension";
 
-    if (-e $ads_bib_file) {
-        print "myextension: Removing generated file $ads_bib_file during clean.\n";
-        unlink $ads_bib_file or warn "myextension: Could not remove $ads_bib_file: $!";
+    if (-e $managed_bib_file) {
+        print "manbib: Removing generated file $managed_bib_file during clean.\n";
+        unlink $managed_bib_file or warn "manbib: Could not remove $managed_bib_file: $!";
     }
     return 0;
 }

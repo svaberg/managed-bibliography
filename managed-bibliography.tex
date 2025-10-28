@@ -1,13 +1,23 @@
-\documentclass{article} 
+\documentclass{article}
+\usepackage{xcolor,listings} 
 \usepackage{aas_macros}
 
 \begin{document}
 
-\section*{Managed bibliography with NASA ADS citation keys} 
-
+\section*{Managed bibliography with ADS keys} 
 \input{README.tex}
 
-\subsection*{Example citations}
+\subsection*{Example \texttt{latexmkrc} file}
+Here is an example of a \texttt{latexmkrc} file that loads the \texttt{managed-bibliography.pl} script and sets some options:
+
+\lstset{
+    language=Perl,
+    commentstyle=\color{gray},
+    basicstyle=\ttfamily\small,
+}
+\lstinputlisting{latexmkrc}
+
+\section*{Example citations}
 Papers that use the ADS citation keys are automatically included in the managed bibliography file \texttt{adstex.keys.bib}.
 Here are some examples of such citations:
 \cite{%
@@ -22,6 +32,6 @@ Works that are not in the ADS database can be cited as usual by providing a cust
 
 
 \bibliographystyle{plain}
-\bibliography{adstex.keys.bib,custom}
+\bibliography{adskeys,custom}
 
 \end{document}
