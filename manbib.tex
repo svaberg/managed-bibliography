@@ -12,26 +12,7 @@
 
 \begin{document}
 
-\section{Managed bibliography with ADS keys} 
 \input{README.tex}
-
-\section{Example \texttt{latexmkrc} file}
-Here is an example of a \texttt{latexmkrc} file that loads the \texttt{managed-bibliography.pl} script and sets some options:
-
-\lstset{
-    language=Perl,
-    commentstyle=\color{gray},
-    basicstyle=\ttfamily\small,
-}
-\lstset{
-  rangeprefix=\#\ ,       % everything before the label
-  rangesuffix=,          % nothing special after
-}
-\lstinputlisting[
-  linerange={Settings-End\ of\ settings}
-]{latexmkrc}
-% \lstinputlisting[lastline=47]{latexmkrc}
-% \lstinputlisting[rangeprefix=\#<*,rangesuffix=*>,linerange={START-END}]{example.py}
 
 \section{Example citations}
 Papers that use the ADS citation keys are automatically included in the managed bibliography file \texttt{adstex.keys.bib}.
@@ -47,7 +28,22 @@ Here are a few more
 Works that are not in the ADS database can be cited as usual by providing a custom bibliography file. Here is an example: \cite{mcgrail2004}.
 
 
+\section{Example \texttt{latexmkrc} file}
+Here is an example of a \texttt{latexmkrc} file that loads the \texttt{managed-bibliography.pl} script and sets some options:
+
+\lstset{
+  language=Perl,
+  commentstyle=\color{gray},
+  basicstyle=\ttfamily,
+  rangeprefix=\#\ ,
+  rangesuffix=,
+}
+\lstinputlisting[
+  linerange={Settings-End\ of\ settings}
+]{latexmkrc}
+
+
 \bibliographystyle{plain}
-\bibliography{adskeys,custom}
+\bibliography{manbib.adskeys,custom}
 
 \end{document}

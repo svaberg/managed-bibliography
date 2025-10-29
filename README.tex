@@ -1,3 +1,6 @@
+\section{Managed bibliography with ADS
+keys}\label{managed-bibliography-with-ads-keys}
+
 This Perl script uses the \href{https://ui.adsabs.harvard.edu/}{NASA
 astronomy data service (ADS)} citation keys and the
 \href{https://github.com/yymao/adstex}{Python \texttt{adstex} package}
@@ -48,9 +51,10 @@ following command in the terminal:
 latexmk -pdf -bibtex manbib.tex
 \end{verbatim}
 
-This will create the file \texttt{manbib.pdf} along with the managed
-bibliography file \texttt{manbib.adskeys.bib}. You can clean up the
-generated files by running:
+This will create the file \href{./manbib.pdf}{\texttt{manbib.pdf}} along
+with the managed bibliography file
+\href{./manbib.adskeys.bib}{\texttt{manbib.adskeys.bib}}. You can clean
+up the generated files by running:
 
 \begin{verbatim}
 latexmk -C manbib.tex

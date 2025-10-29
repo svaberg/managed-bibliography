@@ -1,3 +1,5 @@
+# Managed bibliography with ADS keys
+
 This Perl script uses the [NASA astronomy data service (ADS)](https://ui.adsabs.harvard.edu/) citation keys and the [Python `adstex` package](https://github.com/yymao/adstex) so that you can forget about your bibliography management! For citation commands in your document that use ADS citation keys, i.e., commands like this `\cite{1958ZA.....46..108B}`, the script automatically fetches and caches the bibliography entries from the ADS database in a managed bibliography file (normally with extension `.adskeys.bib`).
 
 Citations with keys that are not present in the ADS database can be added by providing one or more additional bibliography files, as is done in the source file for this document: `\bibliography{manbib.adskeys,custom}`.
@@ -18,6 +20,6 @@ To build [`manbib.tex`](./manbib.tex) with Latexmk run the following command in 
 
     latexmk -pdf -bibtex manbib.tex
 
-This will create the file `manbib.pdf` along with the managed bibliography file `manbib.adskeys.bib`. You can clean up the generated files by running:
+This will create the file [`manbib.pdf`](./manbib.pdf) along with the managed bibliography file [`manbib.adskeys.bib`](./manbib.adskeys.bib). You can clean up the generated files by running:
 
     latexmk -C manbib.tex
