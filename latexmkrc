@@ -1,5 +1,4 @@
 
-#
 # Settings for managed-bibliography.pl script
 #
 # To use this extension with latexmk, add the contents
@@ -32,7 +31,7 @@ $adstex_options = "--no-update --no-backup";
 # Set to:
 #   0 = do not delete (recommended)
 #   1 = delete the managed bibliography file on full clean
-$delete_on_full_clean = 1;
+$delete_on_full_clean = 0;
 
 # Extensions for the managed bibliography file and citation 
 # keys LaTeX file The recommended defaults are 'keys.bib' 
@@ -43,11 +42,12 @@ $keys_tex_file_extension = 'keys.tex';
 # Add this to latexmkrc to loads the script
 require './managed-bibliography.pl';
 #
-# End of settings
+# End of settings for managed-bibliography.pl 
 #
 
-# This is separate configuration used to include the README.md
-# file as README.tex in the LaTeX document. This is optional
+
+
+# This is separate configuration used to build manbib.tex
 # and not part of the managed-bibliography.pl settings.
 add_hook('before_xlatex', 'convert_readme');
 sub convert_readme {
