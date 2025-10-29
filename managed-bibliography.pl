@@ -115,7 +115,7 @@ sub manage_bibliography {
     print "manbib: Constructed other_part for adstex: $other_part\n";
     my $cmd = "adstex \"$keys_tex_file\" $adstex_options $other_part --output \"$managed_bib_file\"";
     print "manbib: Running external command:\n";
-    print "myextension> $cmd\n";
+    print "manbib: > $cmd\n";
     my $rc = system($cmd);
     print "manbib: Finished running adstex on $keys_tex_file.\n";
     return ($rc == 0) ? 0 : 1;
