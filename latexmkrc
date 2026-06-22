@@ -6,12 +6,16 @@
 #
 # By default the managed bibliography file is named the
 # same as the main LaTeX basename. For document.tex it
-# will be document.keys.bib. This default applies when
+# will be document.adskeys.bib. This default applies when
 # $managed_bib_file is unset (or set to undef). You can
 # set a different name here; useful if you want to share
 # one managed bibliography file between multiple LaTeX
 # documents in the same directory.
 # $managed_bib_file = "adskeys.bib";
+#
+# Command used to invoke adstex. The default is:
+#   python3 -m adstex
+$adstex_command = 'python3 -m adstex';
 #
 # Additional options to pass to adstex. Recommended:
 #   --no-update  (do not update existing entries)
@@ -28,7 +32,7 @@ $adstex_options = "--no-update --no-backup";
 $delete_on_full_clean = 0;
 #
 # Extensions for the managed bibliography and citation
-# keys LaTeX file. The default values are 
+# keys LaTeX file. The default values are
 # 'adskeys.bib' and 'keys.tex'.
 $bib_file_extension = 'adskeys.bib';
 $keys_tex_file_extension = 'keys.tex';
@@ -44,5 +48,5 @@ require './managed-bibliography.pl';
 # the managed-bibliography.pl settings.
 add_hook('before_xlatex', 'convert_readme');
 sub convert_readme {
-    return system("pandoc README.md -o README.tex");
+    return system("pandoc --from=gfm README.md -o README.tex");
 }

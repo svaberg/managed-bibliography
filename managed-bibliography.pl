@@ -4,7 +4,7 @@
 #
 # This script hooks into latexmk’s build process (before_xlatex) to:
 #   - Parse the .aux file for citation keys and bibliography files
-#   - Maintain a separate managed .bib file (e.g. adstex.keys.bib)
+#   - Maintain a separate managed .bib file (e.g. document.adskeys.bib)
 #   - Keep a cache of all seen citation keys in a simple LaTeX file (keys.tex)
 #   - Regenerate the managed bibliography automatically via adstex
 #
@@ -22,6 +22,7 @@
 # undef (or unset) means to use the main LaTeX file base name.
 my $managed_bib_file = $main::managed_bib_file // undef;
 #
+my $adstex_command = $main::adstex_command // 'python3 -m adstex';
 # Additional options to pass to adstex. 
 my $adstex_options = $main::adstex_options // '--no-update --no-backup';
 #
@@ -54,6 +55,7 @@ sub manage_bibliography {
     my $aux_file = "$$Pbase.aux";
 
     my $keys_tex_file = "$$Pbase.$keys_tex_file_extension";
+    my $keys_tex_tmp = "$keys_tex_file.tmp";
     if (!defined $managed_bib_file) {
         $managed_bib_file = "$$Pbase.$bib_file_extension";
     }
@@ -96,12 +98,12 @@ sub manage_bibliography {
     print "manbib: Found ", scalar(@new_keys), " new, uncached citation keys.\n";
 
     # Write citation keys LaTeX file for adstex
-    write_cached_keys($keys_tex_file, %all_keys);
+    write_cached_keys($keys_tex_tmp, %all_keys);
 
     #
     # Run adstex on the citation keys LaTeX file
     #
-    print "manbib: Running adstex on $keys_tex_file to generate $managed_bib_file\n";
+    print "manbib: Running adstex on $keys_tex_tmp to generate $managed_bib_file\n";
     # The --other options: pass all user bibliography files except the managed one
    my @user_bibtex_files = grep { $_ ne $managed_bib_file && -e $_ } @bibtex_files;
     print "manbib: User bibliography files for adstex: @user_bibtex_files\n";
@@ -113,12 +115,20 @@ sub manage_bibliography {
         $other_part = "--other $files";
     }
     print "manbib: Constructed other_part for adstex: $other_part\n";
-    my $cmd = "adstex \"$keys_tex_file\" $adstex_options $other_part --output \"$managed_bib_file\"";
+    my $cmd = "$adstex_command \"$keys_tex_tmp\" $adstex_options $other_part --output \"$managed_bib_file\"";
     print "manbib: Running external command:\n";
     print "manbib: > $cmd\n";
     my $rc = system($cmd);
+    if ($rc != 0) {
+        unlink $keys_tex_tmp if -e $keys_tex_tmp;
+        print "manbib: adstex failed; leaving $keys_tex_file unchanged.\n";
+        return 1;
+    }
+
+    rename $keys_tex_tmp, $keys_tex_file
+      or die "manbib: Could not update $keys_tex_file: $!";
     print "manbib: Finished running adstex on $keys_tex_file.\n";
-    return ($rc == 0) ? 0 : 1;
+    return 0;
 }
 
 
