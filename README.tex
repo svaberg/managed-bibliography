@@ -3,17 +3,23 @@ keys}\label{managed-bibliography-with-ads-keys}
 
 Forget about bibliography management with pure NASA ADS keys!
 
-This repository provides a drop-in Perl script that keeps a managed BibTeX
-file in sync with ADS citation keys used in a LaTeX document. During the
-build it looks at the citations recorded in the \texttt{.aux} file,
-fetches entries from the
-\href{https://ui.adsabs.harvard.edu/}{NASA astronomy data service
-(ADS)}, and writes them to a managed bibliography file.
+This drop-in Perl script uses citation keys from the
+\href{https://ui.adsabs.harvard.edu/}{NASA astronomy data service (ADS)}
+so that you can forget about your bibliography management. For citation
+commands in your document that use ADS keys, such as
+\texttt{\textbackslash{}cite\{1958ZA.....46..108B\}}, the script
+automatically fetches and caches the corresponding bibliography entries
+in a managed bibliography file, normally with extension
+\texttt{.adskeys.bib}. It also keeps a generated \texttt{.map} sidecar
+with cached ADS key checks and canonicalization results.
 
-The usual way to use it is with
-\href{https://ctan.org/pkg/latexmk/}{Latexmk}. The file
-\texttt{managed-bibliography.pl} contains the bibliography logic;
-\texttt{latexmkrc} shows how to hook it into a build.
+Citations with keys that are not present in the ADS database can be
+added by providing one or more additional bibliography files, as in
+\texttt{\textbackslash{}bibliography\{paper.adskeys,custom\}}.
+
+The script is intended for integration with
+\href{https://ctan.org/pkg/latexmk/}{Latexmk}, which automates the build
+process for LaTeX documents.
 
 \subsection{How to use}\label{how-to-use}
 
@@ -36,15 +42,10 @@ through \texttt{ADS\_API\_TOKEN}, \texttt{ADS\_DEV\_KEY},
 putting tokens directly in a committed \texttt{latexmkrc} unless you
 really need to.
 
-Then build as usual with \texttt{latexmk}. On the first run the managed
-bibliography file is created automatically.
-
-\subsection{Requirements}\label{requirements}
-
-The script uses \texttt{HTTP::Tiny} and \texttt{JSON::PP}. A
-straightforward baseline is Perl 5.14 or later, where those modules are
-part of core Perl. \texttt{latexmk} is required for the integration
-shown in this repository.
+The script uses \texttt{HTTP::Tiny} and \texttt{JSON::PP}. Perl 5.14 or
+later is a sensible baseline. Then build as usual with \texttt{latexmk}.
+On the first run the managed bibliography file and its \texttt{.map}
+sidecar are created automatically.
 
 \subsection{How it works}\label{how-it-works}
 
@@ -58,11 +59,38 @@ Keys that are still unresolved are sent to ADS. The script first asks
 ADS to canonicalize identifiers, then exports the matching BibTeX
 entries in bulk, rewrites the exported entry keys back to the keys cited
 in the document, and stores the results in the managed bibliography
-file.
+file. The generated \texttt{.map} sidecar stores cached ADS key checks
+and canonicalization results so that duplicate warnings and ADS-valid
+user-bibliography keys can be reported again on later runs without
+re-querying ADS.
+
+If two cited keys resolve to the same ADS entry, or if a cited key
+resolves to a canonical ADS key that already exists in another
+bibliography file, the script reports that. The \texttt{latexmkrc}
+setting \texttt{\$allow\_duplicates} controls whether those cases are
+allowed with a warning or stop the build.
 
 If ADS does not return an entry, the key is left unresolved and
 LaTeX/BibTeX behaves as it normally would for a missing citation.
 
 By default, \texttt{latexmk\ -C} also removes the managed bibliography
-file. The next build then performs a fresh ADS lookup, which can refresh
-stale cached entries.
+file and its \texttt{.map} sidecar. The next build then performs a fresh
+ADS lookup, which can refresh stale cached entries.
+
+\subsection{Test case}\label{test-case}
+
+To build \href{./manbib.tex}{\texttt{manbib.tex}} with Latexmk, run:
+
+\begin{verbatim}
+latexmk -pdf -bibtex manbib.tex
+\end{verbatim}
+
+This creates \href{./manbib.pdf}{\texttt{manbib.pdf}} together with the
+managed bibliography file
+\href{./manbib.adskeys.bib}{\texttt{manbib.adskeys.bib}} and the sidecar
+cache \href{./manbib.adskeys.map}{\texttt{manbib.adskeys.map}}. To clean
+up the generated files, run:
+
+\begin{verbatim}
+latexmk -C manbib.tex
+\end{verbatim}

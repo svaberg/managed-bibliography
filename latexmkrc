@@ -30,6 +30,15 @@
 #   1 = delete on full clean
 $delete_on_full_clean = 1;
 #
+# Allow two cited keys to resolve to the same canonical
+# ADS entry. If this happens, the managed bibliography
+# will contain the same paper twice under different
+# BibTeX keys, so the final bibliography can show
+# duplicate entries for one paper. Set:
+#   0 = stop the build when this happens
+#   1 = allow it and duplicate the entry under each cited key
+$allow_duplicates = 1;
+#
 # Extension for the managed bibliography file. The
 # default value is 'adskeys.bib'.
 $bib_file_extension = 'adskeys.bib';
