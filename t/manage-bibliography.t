@@ -204,6 +204,32 @@ EOF
 };
 
 
+subtest 'missing aux file on the first LaTeX pass is a no-op' => sub {
+    my $tmpdir = tempdir(CLEANUP => 1);
+
+    my ($rc, $stdout) = run_in_dir(
+        $tmpdir,
+        sub {
+            return capture_stdout(
+                sub {
+                    ManagedBibliography::manage_bibliography(
+                        document_base => 'paper',
+                    );
+                }
+            );
+        }
+    );
+
+    is($rc, 0, 'manage_bibliography returns success before the first LaTeX run creates the aux file');
+    like($stdout, qr/Auxiliary file paper\.aux is not present yet; waiting for the first LaTeX run\./, 'missing aux file is reported as a harmless first-run condition');
+    is(
+        read_file(File::Spec->catfile($tmpdir, 'paper.adskeys.bib')),
+        managed_bib_with_header(''),
+        'managed bibliography file is still initialized on the first run',
+    );
+};
+
+
 subtest 'managed bibliography not listed in \\bibliography command is reported clearly' => sub {
     my $tmpdir = tempdir(CLEANUP => 1);
 

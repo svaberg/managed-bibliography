@@ -76,6 +76,10 @@ sub manage_bibliography {
         print "manbib: Creating managed bibliography file $managed_bib_file (first use).\n";
         write_managed_bibliography_file($managed_bib_file, {});
     }
+    if (!-e $aux_file) {
+        print "manbib: Auxiliary file $aux_file is not present yet; waiting for the first LaTeX run.\n";
+        return 0;
+    }
 
     my @bibtex_files = discover_bibtex_files($aux_file);
     if (not @bibtex_files) {
