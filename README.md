@@ -10,7 +10,7 @@ The script is intended for integration with [Latexmk](https://ctan.org/pkg/latex
 
 ## How to use
 
-Copy [`managed-bibliography.pl`](./managed-bibliography.pl) into your document directory. Then copy the settings from [`latexmkrc`](./latexmkrc) into your own `latexmkrc`, or use that file as a starting point.
+Copy [`managed-bibliography.pl`](./managed-bibliography.pl) into your document directory. Then copy the [`latexmkrc`](./latexmkrc) file as well, or merge the its content with your preexisting `latexmkrc` file.
 
 Add the managed bibliography file to your `\bibliography{...}` command. By default, a document `paper.tex` uses `paper.adskeys.bib`, so a typical setup looks like `\bibliography{paper.adskeys,custom}`. If you set `$managed_bib_file` to another filename, use that basename instead.
 
