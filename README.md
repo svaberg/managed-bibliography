@@ -39,3 +39,17 @@ To build [`manbib.tex`](./manbib.tex) with Latexmk, run:
 This creates [`manbib.pdf`](./manbib.pdf) together with the managed bibliography file [`manbib.adskeys.bib`](./manbib.adskeys.bib) and the sidecar cache [`manbib.adskeys.map`](./manbib.adskeys.map). To clean up the generated files, run:
 
     latexmk -C manbib.tex
+
+## Known issues
+
+If ADS lookups abort immediately with a message about missing Perl HTTPS support, `latexmk` is probably running under a Perl that does not have the required SSL modules. This often happens when `perl` on your `PATH` comes from Conda.
+
+The script uses `HTTP::Tiny` for ADS requests, and HTTPS support requires the Perl modules `IO::Socket::SSL` and `Net::SSLeay`. If those modules are missing, `manbib` aborts ADS work for that run and reports the active Perl runtime.
+
+If this happens, check `which perl` in the same shell that runs `latexmk`. The important point is not which Perl you use, but that the active Perl runtime must have HTTPS support available to `HTTP::Tiny`.
+
+As a quick test, and often as a practical workaround on macOS, run Latexmk explicitly under the system Perl:
+
+    /usr/bin/perl /Library/TeX/texbin/latexmk -pdf -bibtex manbib.tex
+
+If that works while a plain `latexmk -pdf -bibtex manbib.tex` does not, the problem is almost certainly that your normal shell environment is selecting a different Perl. In that case, either install the required Perl SSL modules in that Perl environment or continue invoking Latexmk explicitly with a Perl that already has HTTPS support.

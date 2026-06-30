@@ -48,6 +48,8 @@ use constant MANAGED_CANONICAL_KEY_MAP_HEADER => <<'EOF';
 # cited_key<TAB>canonical_ads_key_or_-
 EOF
 
+our $ADS_HTTPS_SUPPORT_REPORTED = 0;
+
 
 # Read the LaTeX build state, resolve missing ADS entries, and update the
 # managed bibliography file.
@@ -61,10 +63,13 @@ sub manage_bibliography {
     my $ads_api_token = $args{ads_api_token};
     my $bib_file_extension = $args{bib_file_extension} // DEFAULT_BIB_FILE_EXTENSION;
     my $allow_duplicates = $args{allow_duplicates} // 1;
+    local $ADS_HTTPS_SUPPORT_REPORTED = 0;
 
     print "manbib: ******************************************************\n";
     print "manbib: * Forget bibliography management with pure ADS keys! *\n";
     print "manbib: ******************************************************\n";
+    print join("\n", format_perl_runtime_lines('Using Perl runtime:')), "\n";
+    report_startup_ads_https_preflight($ads_api_token);
 
     my $aux_file = "$document_base.aux";
     if (!defined $managed_bib_file) {
@@ -117,11 +122,13 @@ sub manage_bibliography {
     if ($user_key_status eq ADS_STATUS_AUTH) {
         report_ads_auth_failure(
             $user_key_detail->{auth_status},
-            unresolved_message => 'leaving cited keys already present in user bibliography files unchecked.',
+            unresolved_message => 'aborting ADS work for this run.',
         );
+        return 0;
     }
     elsif ($user_key_status eq ADS_STATUS_ERROR) {
-        print "manbib: ADS lookup failed while checking cited keys already present in user bibliography files; leaving them unchecked.\n";
+        print "manbib: ADS lookup failed while checking cited keys already present in user bibliography files; aborting ADS work for this run.\n";
+        return 0;
     }
 
     my %stored_canonical_for = %{$stored_canonical_for_ref};
@@ -490,6 +497,13 @@ sub ads_http_client {
 }
 
 
+# Return whether the current Perl runtime appears able to make HTTPS requests.
+sub perl_https_support_available {
+    my $http = HTTP::Tiny->new();
+    return $http->can('can_ssl') ? ($http->can_ssl ? 1 : 0) : 0;
+}
+
+
 # Percent-encode a string for use in ADS URLs.
 sub uri_escape {
     my ($text) = @_;
@@ -529,6 +543,208 @@ sub decode_ads_json_content {
 }
 
 
+# Flatten multiline error text so diagnostics stay readable in a single log line.
+sub single_line_text {
+    my ($text) = @_;
+    return '' if !defined $text;
+
+    $text =~ s/\s+/ /g;
+    $text =~ s/\A\s+//;
+    $text =~ s/\s+\z//;
+    return $text;
+}
+
+
+# Format an ADS HTTP failure with any available HTTP::Tiny detail text.
+sub describe_ads_http_failure {
+    my ($response) = @_;
+
+    my $status = $response->{status} // 'unknown';
+    my $description = "status $status";
+
+    my $reason = $response->{reason};
+    if (defined $reason && $reason ne '') {
+        $description .= " ($reason)";
+    }
+
+    my $content = $response->{content};
+    if (defined $content && $content =~ /\S/) {
+        $content = single_line_text($content);
+        $content = substr($content, 0, 300) . '...'
+          if length($content) > 300;
+        $description .= ": $content";
+    }
+
+    return $description;
+}
+
+
+# Return the Perl version string for the current runtime.
+sub perl_version_string {
+    return defined $^V ? sprintf('v%vd', $^V) : $];
+}
+
+
+# Return a readable PERL5LIB description for the current runtime.
+sub perl5lib_string {
+    return defined $ENV{PERL5LIB} && $ENV{PERL5LIB} ne ''
+      ? $ENV{PERL5LIB}
+      : '(unset)';
+}
+
+
+# Format the active Perl runtime as a short multi-line block.
+sub format_perl_runtime_lines {
+    my ($title) = @_;
+
+    return (
+        "manbib: $title",
+        "manbib:   executable: $^X",
+        "manbib:   version: " . perl_version_string(),
+        "manbib:   PERL5LIB: " . perl5lib_string(),
+    );
+}
+
+
+# Describe whether a Perl module is visible from the current runtime.
+sub describe_perl_module_runtime {
+    my ($module) = @_;
+
+    my $file = $module;
+    $file =~ s{::}{/}g;
+    $file .= '.pm';
+
+    my $loaded = eval { require $file; 1 };
+    if (!$loaded) {
+        my $error = single_line_text($@);
+        $error =~ s/\s+\(\@INC contains: .*?\)(?= at )//;
+        $error =~ s/\s+at\s+.*\z//;
+        $error = substr($error, 0, 200) . '...'
+          if length($error) > 200;
+        return "$module=unavailable ($error)";
+    }
+
+    my $version = eval { $module->VERSION };
+    $version = defined $version && $version ne '' ? $version : 'unknown';
+    my $path = $INC{$file} // 'unknown';
+    return "$module=$version [$path]";
+}
+
+
+# Format the current Perl library search path as one line per entry.
+sub format_perl_inc_lines {
+    return (
+        "manbib: Perl \@INC:",
+        map { "manbib:   $_" } @INC,
+    );
+}
+
+
+# Format module-visibility diagnostics as one line per module.
+sub format_perl_module_visibility_lines {
+    return (
+        "manbib: Perl module visibility:",
+        map { "manbib:   " . describe_perl_module_runtime($_) }
+          qw(HTTP::Tiny IO::Socket::SSL Net::SSLeay),
+    );
+}
+
+
+# Report a likely HTTPS-support problem immediately after startup when a token
+# is configured and the active Perl clearly cannot reach ADS over HTTPS.
+sub report_startup_ads_https_preflight {
+    my ($ads_api_token) = @_;
+
+    return 0 if !defined $ads_api_token || $ads_api_token eq '';
+    return 0 if perl_https_support_available();
+    return 0 if $ADS_HTTPS_SUPPORT_REPORTED;
+
+    print join(
+        "\n",
+        "manbib: ADS HTTPS preflight failed: the active Perl cannot make HTTPS requests.",
+        "manbib: ADS uses HTTP::Tiny over HTTPS and needs IO::Socket::SSL and Net::SSLeay.",
+        ($^X ne '/usr/bin/perl'
+            ? (
+                "manbib: Hint: latexmk may be using a non-system Perl.",
+                "manbib: Hint: active perl is $^X, while the macOS system Perl is /usr/bin/perl.",
+                "manbib: Hint: check `which perl` in the shell that runs latexmk.",
+            )
+            : ()),
+        "manbib: Perl HTTPS modules:",
+        (map { "manbib:   " . describe_perl_module_runtime($_) }
+          qw(IO::Socket::SSL Net::SSLeay)),
+        "manbib: If this run needs ADS lookups, ADS work will abort.",
+    ), "\n";
+
+    $ADS_HTTPS_SUPPORT_REPORTED = 1;
+    return 1;
+}
+
+
+# Explain clearly why ADS lookups cannot proceed when Perl lacks HTTPS support.
+sub format_ads_https_support_error_lines {
+    my @lines = (
+        "manbib: ADS lookups require Perl HTTPS support, but the active Perl cannot make HTTPS requests.",
+        "manbib: ADS uses https://api.adsabs.harvard.edu/, and HTTP::Tiny needs SSL support from IO::Socket::SSL and Net::SSLeay.",
+        format_perl_runtime_lines('Active Perl runtime:'),
+    );
+
+    if ($^X ne '/usr/bin/perl') {
+        push @lines,
+          "manbib: Hint: you may not be using the system Perl.",
+          "manbib: Hint: active perl is $^X, while the macOS system Perl is /usr/bin/perl.",
+          "manbib: Hint: check `which perl` in the shell that runs latexmk.";
+    }
+
+    push @lines,
+      "manbib: Perl HTTPS modules:",
+      (map { "manbib:   " . describe_perl_module_runtime($_) }
+        qw(IO::Socket::SSL Net::SSLeay)),
+      "manbib: Aborting ADS work for this run.";
+
+    return @lines;
+}
+
+
+# Warn early when the active Perl cannot support ADS HTTPS requests at all.
+sub warn_if_ads_https_support_missing {
+    return 0 if perl_https_support_available();
+    if (!$ADS_HTTPS_SUPPORT_REPORTED) {
+        warn join("\n", format_ads_https_support_error_lines()), "\n";
+        $ADS_HTTPS_SUPPORT_REPORTED = 1;
+    }
+    return 1;
+}
+
+
+# Log extra Perl diagnostics for HTTP::Tiny failures that look runtime-specific.
+sub should_log_perl_runtime_for_ads_failure {
+    my ($response) = @_;
+
+    my $status = $response->{status} // 0;
+    return 1 if $status == 599;
+
+    my $detail = single_line_text(
+        ($response->{reason} // '') . ' ' . ($response->{content} // '')
+    );
+    return $detail =~ /(IO::Socket::SSL|Net::SSLeay|https support|SSL)/i ? 1 : 0;
+}
+
+
+# Emit a consistent ADS HTTP failure warning and optional Perl runtime details.
+sub warn_ads_http_failure {
+    my ($operation, $response) = @_;
+
+    warn "manbib: ADS $operation failed with ",
+      describe_ads_http_failure($response), ".\n";
+    return if !should_log_perl_runtime_for_ads_failure($response);
+
+    warn join("\n", format_perl_runtime_lines('Perl runtime:')), "\n";
+    warn join("\n", format_perl_inc_lines()), "\n";
+    warn join("\n", format_perl_module_visibility_lines()), "\n";
+}
+
+
 # Ask ADS which canonical bibcodes correspond to the cited identifiers.
 sub resolve_ads_bibcodes {
     my ($keys_ref, %args) = @_;
@@ -536,6 +752,8 @@ sub resolve_ads_bibcodes {
     my $ads_api_token = $args{ads_api_token};
     my $http = $args{http_client};
     if (!defined $http) {
+        return (ADS_STATUS_ERROR, undef, undef)
+          if warn_if_ads_https_support_missing();
         $http = ads_http_client($ads_api_token);
     }
 
@@ -591,7 +809,7 @@ sub resolve_ads_bibcodes {
             return (ADS_STATUS_AUTH, undef, $response->{status});
         }
 
-        warn "manbib: ADS identifier search failed with status ", ($response->{status} // 'unknown'), ".\n";
+        warn_ads_http_failure('identifier search', $response);
         return (ADS_STATUS_ERROR, undef, undef);
     }
 
@@ -606,6 +824,8 @@ sub fetch_ads_bibtex_entries {
     my $ads_api_token = $args{ads_api_token};
     my $http = $args{http_client};
     if (!defined $http) {
+        return (ADS_STATUS_ERROR, undef, undef)
+          if warn_if_ads_https_support_missing();
         $http = ads_http_client($ads_api_token);
     }
 
@@ -637,7 +857,7 @@ sub fetch_ads_bibtex_entries {
         return (ADS_STATUS_AUTH, undef, $response->{status});
     }
 
-    warn "manbib: ADS bulk export failed with status ", ($response->{status} // 'unknown'), ".\n";
+    warn_ads_http_failure('bulk export', $response);
     return (ADS_STATUS_ERROR, undef);
 }
 

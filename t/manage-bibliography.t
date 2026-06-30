@@ -66,6 +66,16 @@ sub capture_stdout {
 }
 
 
+sub capture_stderr {
+    my ($code) = @_;
+    my $output = '';
+    open my $fh, '>', \$output or die "open scalar stderr: $!";
+    local *STDERR = $fh;
+    my @result = $code->();
+    return (\@result, $output);
+}
+
+
 sub run_in_dir {
     my ($dir, $code) = @_;
     my $cwd = getcwd();
@@ -159,6 +169,173 @@ EOF
 };
 
 
+subtest 'ADS identifier search failure warning includes HTTP::Tiny detail' => sub {
+    my $http = LocalHTTPClient->new(
+        get_response => {
+            success => 0,
+            status => 599,
+            reason => 'Internal Exception',
+            content => 'Connection reset by peer',
+        },
+        seen_urls => [],
+    );
+
+    my ($result, $stderr) = capture_stderr(
+        sub {
+            return ManagedBibliography::resolve_ads_bibcodes(
+                ['2009LanB...4B...44L'],
+                ads_api_token => 'token',
+                http_client => $http,
+            );
+        }
+    );
+    my ($status, $resolved, $detail) = @{$result};
+
+    is($status, 'error', 'identifier-search failures map to error');
+    ok(!defined $resolved, 'identifier-search failure has no resolved-key map');
+    ok(!defined $detail, 'identifier-search failure has no extra detail');
+    like($stderr, qr/status 599 \(Internal Exception\): Connection reset by peer/, 'identifier-search warning includes HTTP::Tiny detail');
+    like($stderr, qr/manbib: Perl runtime:\nmanbib:   executable: /, 'identifier-search warning logs the active Perl runtime as a block');
+    like($stderr, qr/manbib:   PERL5LIB: /, 'identifier-search warning includes PERL5LIB in the runtime block');
+    like($stderr, qr/manbib: Perl \@INC:/, 'identifier-search warning logs the Perl library search path');
+    like($stderr, qr/manbib: Perl module visibility:\nmanbib:   HTTP::Tiny=/, 'identifier-search warning logs module visibility as a block');
+    like($stderr, qr/manbib:   Net::SSLeay=/, 'identifier-search warning logs SSL module visibility');
+    unlike($stderr, qr/\(\@INC contains:/, 'module visibility omits redundant embedded @INC text');
+};
+
+
+subtest 'missing Perl HTTPS support fails before ADS identifier search starts' => sub {
+    my ($result, $stderr) = capture_stderr(
+        sub {
+            no warnings 'redefine';
+            no warnings 'once';
+            local *ManagedBibliography::perl_https_support_available = sub { return 0; };
+            local *ManagedBibliography::format_ads_https_support_error_lines = sub {
+                return (
+                    'manbib: ADS lookups require Perl HTTPS support, but the active Perl cannot make HTTPS requests.',
+                    'manbib: Hint: you may not be using the system Perl.',
+                    'manbib: Aborting ADS work for this run.',
+                );
+            };
+            local *ManagedBibliography::ads_http_client = sub {
+                die 'ads_http_client should not be reached when HTTPS support is missing';
+            };
+            return ManagedBibliography::resolve_ads_bibcodes(
+                ['2009LanB...4B...44L'],
+                ads_api_token => 'token',
+            );
+        }
+    );
+    my ($status, $resolved, $detail) = @{$result};
+
+    is($status, 'error', 'missing HTTPS support maps to error before identifier search starts');
+    ok(!defined $resolved, 'missing HTTPS support has no resolved-key map');
+    ok(!defined $detail, 'missing HTTPS support has no extra detail');
+    like($stderr, qr/ADS lookups require Perl HTTPS support/, 'missing HTTPS support warns clearly');
+    like($stderr, qr/you may not be using the system Perl/, 'missing HTTPS support suggests the non-system-Perl cause');
+    like($stderr, qr/Aborting ADS work for this run/, 'missing HTTPS support says the run is being aborted');
+};
+
+
+subtest 'startup preflight reports missing Perl HTTPS support before further work' => sub {
+    my $tmpdir = tempdir(CLEANUP => 1);
+
+    my ($result, $stderr) = capture_stderr(
+        sub {
+            return run_in_dir(
+                $tmpdir,
+                sub {
+                    no warnings 'redefine';
+                    no warnings 'once';
+                    local *ManagedBibliography::perl_https_support_available = sub { return 0; };
+                    return capture_stdout(
+                        sub {
+                            ManagedBibliography::manage_bibliography(
+                                document_base => 'paper',
+                                ads_api_token => 'token',
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
+    my ($rc, $stdout) = @{$result};
+
+    is($rc, 0, 'manage_bibliography still returns success for a first-pass no-op');
+    is($stderr, '', 'startup preflight is reported through normal manbib output');
+    like(
+        $stdout,
+        qr/Using Perl runtime:.*ADS HTTPS preflight failed: the active Perl cannot make HTTPS requests\..*Auxiliary file paper\.aux is not present yet; waiting for the first LaTeX run\./s,
+        'startup preflight appears after the runtime block and before later run-state messages',
+    );
+};
+
+
+subtest 'user bibliography ADS lookup failure aborts the rest of the run' => sub {
+    my $tmpdir = tempdir(CLEANUP => 1);
+
+    write_file(
+        File::Spec->catfile($tmpdir, 'paper.aux'),
+        <<'EOF'
+\relax
+\bibdata{paper.adskeys,custom}
+\citation{localkey,missingkey}
+EOF
+    );
+
+    write_file(
+        File::Spec->catfile($tmpdir, 'custom.bib'),
+        <<'EOF'
+@article{localkey,
+  title = {Local},
+}
+EOF
+    );
+
+    my $resolve_calls = 0;
+    my $fetch_calls = 0;
+    my ($rc, $stdout) = run_in_dir(
+        $tmpdir,
+        sub {
+            no warnings 'redefine';
+            local *ManagedBibliography::resolve_ads_bibcodes = sub {
+                $resolve_calls++;
+                return ('error', undef, undef);
+            };
+            local *ManagedBibliography::fetch_ads_bibtex_entries = sub {
+                $fetch_calls++;
+                return ('ok', '', {});
+            };
+            return capture_stdout(
+                sub {
+                    ManagedBibliography::manage_bibliography(
+                        document_base => 'paper',
+                        ads_api_token => 'token',
+                    );
+                }
+            );
+        }
+    );
+
+    is($rc, 0, 'manage_bibliography returns success when the first ADS pass fails');
+    is($resolve_calls, 1, 'user-bibliography ADS lookup is attempted only once');
+    is($fetch_calls, 0, 'bulk BibTeX fetch is skipped after the first ADS failure');
+    like(
+        $stdout,
+        qr/ADS lookup failed while checking cited keys already present in user bibliography files; aborting ADS work for this run\./,
+        'first ADS failure aborts the rest of the run',
+    );
+    unlike($stdout, qr/Need ADS entries for 1 citation keys\./, 'missing-key ADS pass is not started after the first failure');
+    unlike($stdout, qr/ADS lookup failed for <missingkey>/, 'per-key missing-entry failures are not printed after early abort');
+    is(
+        read_file(File::Spec->catfile($tmpdir, 'paper.adskeys.bib')),
+        managed_bib_with_header(''),
+        'managed bibliography stays at its header-only state after the early abort',
+    );
+};
+
+
 subtest 'local bibliography plus missing ADS key without token' => sub {
     my $tmpdir = tempdir(CLEANUP => 1);
 
@@ -220,6 +397,9 @@ subtest 'missing aux file on the first LaTeX pass is a no-op' => sub {
     );
 
     is($rc, 0, 'manage_bibliography returns success before the first LaTeX run creates the aux file');
+    like($stdout, qr/Using Perl runtime:\nmanbib:   executable: /, 'startup reports the active Perl runtime as a block');
+    like($stdout, qr/manbib:   version: /, 'startup runtime block includes the Perl version');
+    like($stdout, qr/manbib:   PERL5LIB: /, 'startup runtime block includes PERL5LIB');
     like($stdout, qr/Auxiliary file paper\.aux is not present yet; waiting for the first LaTeX run\./, 'missing aux file is reported as a harmless first-run condition');
     is(
         read_file(File::Spec->catfile($tmpdir, 'paper.adskeys.bib')),

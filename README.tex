@@ -94,3 +94,23 @@ up the generated files, run:
 \begin{verbatim}
 latexmk -C manbib.tex
 \end{verbatim}
+
+\subsection{Known issues}\label{known-issues}
+
+If ADS lookups abort immediately with a message about missing Perl HTTPS
+support, \texttt{latexmk} is probably running under a Perl that does not
+have the required SSL modules. This often happens when \texttt{perl} on
+your \texttt{PATH} comes from Conda rather than the macOS system Perl.
+
+The script uses \texttt{HTTP::Tiny} for ADS requests, and HTTPS support
+requires the Perl modules \texttt{IO::Socket::SSL} and
+\texttt{Net::SSLeay}. If those modules are missing, \texttt{manbib}
+aborts ADS work for that run and reports the active Perl runtime.
+
+If this happens, check \texttt{which\ perl} in the same shell that runs
+\texttt{latexmk}. The important point is not which Perl you use, but
+that the active Perl runtime must have HTTPS support available to
+\texttt{HTTP::Tiny}. If a non-system Perl is being used, such as one
+from Conda, install the required Perl SSL modules there or adjust your
+environment so that the Perl used by \texttt{latexmk} already has HTTPS
+support.

@@ -140,10 +140,42 @@ subtest 'invalid JSON response returns error' => sub {
 };
 
 
+subtest 'missing Perl HTTPS support fails before ADS bulk export starts' => sub {
+    my ($result, $stderr) = capture_stderr(
+        sub {
+            no warnings 'redefine';
+            no warnings 'once';
+            local *ManagedBibliography::perl_https_support_available = sub { return 0; };
+            local *ManagedBibliography::format_ads_https_support_error_lines = sub {
+                return (
+                    'manbib: ADS lookups require Perl HTTPS support, but the active Perl cannot make HTTPS requests.',
+                    'manbib: Hint: you may not be using the system Perl.',
+                    'manbib: Aborting ADS work for this run.',
+                );
+            };
+            local *ManagedBibliography::ads_http_client = sub {
+                die 'ads_http_client should not be reached when HTTPS support is missing';
+            };
+            return ManagedBibliography::fetch_ads_bibtex_entries(['broken']);
+        }
+    );
+    my ($status, $content, $detail) = @{$result};
+
+    is($status, 'error', 'missing HTTPS support maps to error before bulk export starts');
+    ok(!defined $content, 'missing HTTPS support has no export content');
+    ok(!defined $detail, 'missing HTTPS support has no extra detail');
+    like($stderr, qr/ADS lookups require Perl HTTPS support/, 'missing HTTPS support warns clearly');
+    like($stderr, qr/you may not be using the system Perl/, 'missing HTTPS support suggests the non-system-Perl cause');
+    like($stderr, qr/Aborting ADS work for this run/, 'missing HTTPS support says the run is being aborted');
+};
+
+
 subtest 'other failures return error' => sub {
     my $http = TestHTTPClient->new({
         success => 0,
-        status => 500,
+        status => 599,
+        reason => 'Internal Exception',
+        content => 'SSL connect attempt failed',
     });
 
     my ($result, $stderr) = capture_stderr(
@@ -158,7 +190,13 @@ subtest 'other failures return error' => sub {
 
     is($status, 'error', 'unexpected failures map to error');
     ok(!defined $content, 'error response has no content');
-    like($stderr, qr/status 500/, 'unexpected failures warn');
+    like($stderr, qr/status 599 \(Internal Exception\): SSL connect attempt failed/, 'unexpected failures warn with HTTP::Tiny detail');
+    like($stderr, qr/manbib: Perl runtime:\nmanbib:   executable: /, 'unexpected failures log the active Perl runtime as a block');
+    like($stderr, qr/manbib:   PERL5LIB: /, 'unexpected failures include PERL5LIB in the runtime block');
+    like($stderr, qr/manbib: Perl \@INC:/, 'unexpected failures log the Perl library search path');
+    like($stderr, qr/manbib: Perl module visibility:\nmanbib:   HTTP::Tiny=/, 'unexpected failures log module visibility as a block');
+    like($stderr, qr/manbib:   IO::Socket::SSL=/, 'unexpected failures log SSL module visibility');
+    unlike($stderr, qr/\(\@INC contains:/, 'module visibility omits redundant embedded @INC text');
 };
 
 done_testing;
