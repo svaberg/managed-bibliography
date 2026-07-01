@@ -1,22 +1,24 @@
 .PHONY: all test clean distclean
 
 LATEXMK ?= latexmk
-PANDOC ?= pandoc
 PROVE ?= prove
+ROOT = manbib.tex
+ROOT_BASE = $(basename $(ROOT))
+MARKDOWN_CACHE_DIR = _markdown_$(ROOT_BASE)
+MARKDOWN_LUABRIDGE = $(ROOT_BASE).luabridge.lua
 
 all: manbib.pdf
 
-README.tex: README.md
-	$(PANDOC) --from=gfm README.md -o README.tex
-
-manbib.pdf: README.tex manbib.tex managed-bibliography.pl latexmkrc
-	$(LATEXMK) -pdf -bibtex manbib.tex
+manbib.pdf: README.md $(ROOT) managed-bibliography.pl latexmkrc
+	$(LATEXMK) -lualatex -bibtex $(ROOT)
 
 test:
 	$(PROVE) -lv t
 
 clean:
-	$(LATEXMK) -C manbib.tex
+	$(LATEXMK) -c $(ROOT)
+	rm -rf $(MARKDOWN_CACHE_DIR) $(MARKDOWN_LUABRIDGE)
 
 distclean:
 	$(LATEXMK) -C
+	rm -rf $(MARKDOWN_CACHE_DIR) $(MARKDOWN_LUABRIDGE)

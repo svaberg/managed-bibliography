@@ -14,7 +14,7 @@ Copy [`managed-bibliography.pl`](./managed-bibliography.pl) into your document d
 
 Add the managed bibliography file to your `\bibliography{...}` command. By default, a document `paper.tex` uses `paper.adskeys.bib`, so a typical setup looks like `\bibliography{paper.adskeys,custom}`. If you set `$managed_bib_file` to another filename, use that basename instead.
 
-Provide an ADS [API token](https://ui.adsabs.harvard.edu/help/api/) through `ADS_API_TOKEN`, `ADS_DEV_KEY`, `$HOME/.ads/token`, or `$HOME/.ads/dev_key`. Avoid putting tokens directly in a committed `latexmkrc` unless you really need to.
+Provide an ADS [API token](https://ui.adsabs.harvard.edu/help/api/) through `ADS_API_TOKEN`, `ADS_DEV_KEY`, `$HOME/.ads/token`, or `$HOME/.ads/dev_key`. We recommend not putting tokens directly in a committed `latexmkrc`; it is a security risk.
 
 The script uses `HTTP::Tiny` and `JSON::PP`. Perl 5.14 or later is a sensible baseline. Then build as usual with `latexmk`. On the first run the managed bibliography file and its `.map` sidecar are created automatically.
 
@@ -34,7 +34,7 @@ By default, `latexmk -C` also removes the managed bibliography file and its `.ma
 
 To build [`manbib.tex`](./manbib.tex) with Latexmk, run:
 
-    latexmk -pdf -bibtex manbib.tex
+    latexmk -lualatex -bibtex manbib.tex
 
 This creates [`manbib.pdf`](./manbib.pdf) together with the managed bibliography file [`manbib.adskeys.bib`](./manbib.adskeys.bib) and the sidecar cache [`manbib.adskeys.map`](./manbib.adskeys.map). To clean up the generated files, run:
 
@@ -50,6 +50,6 @@ If this happens, check `which perl` in the same shell that runs `latexmk`. The i
 
 As a quick test, and often as a practical workaround on macOS, run Latexmk explicitly under the system Perl:
 
-    /usr/bin/perl /Library/TeX/texbin/latexmk -pdf -bibtex manbib.tex
+    /usr/bin/perl /Library/TeX/texbin/latexmk -lualatex -bibtex manbib.tex
 
-If that works while a plain `latexmk -pdf -bibtex manbib.tex` does not, the problem is almost certainly that your normal shell environment is selecting a different Perl. In that case, either install the required Perl SSL modules in that Perl environment or continue invoking Latexmk explicitly with a Perl that already has HTTPS support.
+If that works while a plain `latexmk -lualatex -bibtex manbib.tex` does not, the problem is almost certainly that your normal shell environment is selecting a different Perl. In that case, either install the required Perl SSL modules in that Perl environment or continue invoking Latexmk explicitly with a Perl that already has HTTPS support.
