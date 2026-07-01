@@ -10,11 +10,17 @@ The script is intended for integration with [Latexmk](https://ctan.org/pkg/latex
 
 ## How to use
 
-Copy [`managed-bibliography.pl`](./managed-bibliography.pl) into your document directory. Then copy the [`latexmkrc`](./latexmkrc) file as well, or merge its content with your existing `latexmkrc` file.
+1. Copy [`managed-bibliography.pl`](./managed-bibliography.pl) into your document directory. Then copy the [`latexmkrc`](./latexmkrc) file as well, or merge its content with your existing `latexmkrc` file. For example, run the following command in your document directory:
+    ```bash
+    URL="https://github.com/svaberg/managed-bibliography/raw/main/"
+    curl --location --remote-name-all --no-clobber \
+        "${URL}managed-bibliography.pl" "${URL}latexmkrc"
+    ```
+    If you have your own `latexmkrc` file, be sure to include the `require './ managed-bibliography .pl'` line.
 
-Add the managed bibliography file to your `\bibliography{...}` command. By default, a document `paper.tex` uses `paper.adskeys.bib`, so a typical setup looks like `\bibliography{paper.adskeys,custom}`. If you set `$managed_bib_file` to another filename, use that basename instead.
+2. Add the managed bibliography file to your `\bibliography{...}` command. By default, a document `paper.tex` uses `paper.adskeys.bib`, so a typical setup looks like `\bibliography{paper.adskeys,custom}`. If you set `$managed_bib_file` to another filename, use that basename instead.
 
-Provide an ADS [API token](https://ui.adsabs.harvard.edu/help/api/) through `ADS_API_TOKEN`, `ADS_DEV_KEY`, `$HOME/.ads/token`, or `$HOME/.ads/dev_key`. We recommend not putting tokens directly in a committed `latexmkrc`; it is a security risk.
+3. Provide an ADS [API token](https://ui.adsabs.harvard.edu/help/api/) through `ADS_API_TOKEN`, `ADS_DEV_KEY`, `$HOME/.ads/token`, or `$HOME/.ads/dev_key`. We recommend not putting tokens directly in a committed `latexmkrc`; it is a security risk.
 
 The script uses `HTTP::Tiny` and `JSON::PP`. Perl 5.14 or later is a sensible baseline. Then build as usual with `latexmk`. On the first run the managed bibliography file and its `.map` sidecar are created automatically.
 
@@ -33,13 +39,13 @@ By default, `latexmk -C` also removes the managed bibliography file and its `.ma
 ## Test case
 
 To build [`manbib.tex`](./manbib.tex) with Latexmk, run:
-
-    latexmk -lualatex -bibtex manbib.tex
-
+```bash
+latexmk -lualatex -bibtex manbib.tex
+```
 This creates [`manbib.pdf`](./manbib.pdf) together with the managed bibliography file [`manbib.adskeys.bib`](./manbib.adskeys.bib) and the sidecar cache [`manbib.adskeys.map`](./manbib.adskeys.map). To clean up the generated files, run:
-
-    latexmk -C manbib.tex
-
+```bash
+latexmk -C manbib.tex
+```
 ## Known issues
 
 If ADS lookups abort immediately with a message about missing Perl HTTPS support, `latexmk` is probably running under a Perl that does not have the required SSL modules. This often happens when `perl` on your `PATH` comes from Conda.
@@ -49,7 +55,7 @@ The script uses `HTTP::Tiny` for ADS requests, and HTTPS support requires the Pe
 If this happens, check `which perl` in the same shell that runs `latexmk`. The important point is not which Perl you use, but that the active Perl runtime must have HTTPS support available to `HTTP::Tiny`.
 
 As a quick test, and often as a practical workaround on macOS, run Latexmk explicitly under the system Perl:
-
-    /usr/bin/perl /Library/TeX/texbin/latexmk -lualatex -bibtex manbib.tex
-
+```bash
+/usr/bin/perl /Library/TeX/texbin/latexmk -lualatex -bibtex manbib.tex
+```
 If that works while a plain `latexmk -lualatex -bibtex manbib.tex` does not, the problem is almost certainly that your normal shell environment is selecting a different Perl. In that case, either install the required Perl SSL modules in that Perl environment or continue invoking Latexmk explicitly with a Perl that already has HTTPS support.

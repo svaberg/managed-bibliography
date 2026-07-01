@@ -1,5 +1,7 @@
 \documentclass{article}
 \usepackage{xcolor}
+\usepackage{fancyvrb}
+\usepackage{framed}
 \usepackage{listings}
 \usepackage{microtype}
 \usepackage{hyperref}
@@ -7,10 +9,22 @@
 \hypersetup{
     colorlinks=true,
 }
+\definecolor{shadecolor}{gray}{0.93}
+\newenvironment{markdowncodeblock}
+  {\par\small\begin{snugshade}}
+  {\end{snugshade}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.75\baselineskip}
 \tolerance=2000
 \emergencystretch=3em
 \markdownSetup{
     renderers = {
+        inputVerbatim = {
+            \begin{markdowncodeblock}\VerbatimInput[fontsize=\small]{#1}\end{markdowncodeblock}
+        },
+        inputFencedCode = {
+            \begin{markdowncodeblock}\VerbatimInput[fontsize=\small]{#1}\end{markdowncodeblock}
+        },
         link = {\href{#3}{#1}},
     },
 }
